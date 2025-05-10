@@ -3,3 +3,4 @@ pillow
 google-adk
 pytesseract
 bs4
+pip-system-certs
