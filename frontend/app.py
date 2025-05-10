@@ -43,6 +43,11 @@ def get_latest_screenshot():
     
     return latest_screenshot, mod_time
 
+# Add a simulated agent log function
+def agent_log(agent_name, message):
+    """Display an agent interaction log"""
+    st.markdown(f"<div style='font-size:0.8em; color:#666; background:#f0f0f0; padding:3px 6px; margin:2px 0; border-left:3px solid #444;'><b>{agent_name}</b>: {message}</div>", unsafe_allow_html=True)
+
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
 eva_logo_path = os.path.join(src_dir, "eva_logo.svg")
@@ -88,9 +93,7 @@ st.markdown(f"""
 
 # ------------------ SESSION STATE ------------------ #
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "bot", "text": "Hello, how can I assist you?", "has_image": False}
-    ]
+    st.session_state.messages = []  # Start with empty messages instead of welcome message
 
 if "waiting_for_screenshot" not in st.session_state:
     st.session_state.waiting_for_screenshot = False
@@ -108,7 +111,9 @@ if "screenshot_to_analyze" not in st.session_state:
 # If we're in screenshot waiting mode, check for new screenshots
 if st.session_state.waiting_for_screenshot:
     # Create a progress indicator
-    with st.spinner("Waiting for screenshot..."):
+    with st.spinner("ScreenCaptureAgent listening for new screenshots..."):
+        agent_log("ScreenCaptureAgent", "Monitoring desktop for new screenshots...")
+        
         # Get the current latest screenshot and its time
         current_screenshot, current_time = get_latest_screenshot()
         
@@ -117,56 +122,82 @@ if st.session_state.waiting_for_screenshot:
         st.text(f"Current screenshot time: {current_time}")
         st.text(f"Current screenshot path: {current_screenshot}")
         
-        # Check if we have a screenshot newer than our last recorded one
-        if current_time > st.session_state.last_screenshot_time + 1:  # Adding 1 second threshold
+        # Force a check for completely new screenshots
+        all_screenshots = []
+        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        for pattern in [
+            os.path.join(desktop_path, 'Screenshot*.png'),
+            os.path.join(desktop_path, 'Screen Shot*.png'),
+            os.path.join(desktop_path, 'screen*.png')
+        ]:
+            all_screenshots.extend(glob.glob(pattern))
+        
+        # If there are new screenshots taken after we started listening
+        new_screenshots = [s for s in all_screenshots if os.path.getmtime(s) > st.session_state.last_screenshot_time + 1]
+        
+        if new_screenshots:
+            # Get the newest one
+            newest_screenshot = max(new_screenshots, key=os.path.getmtime)
+            new_time = os.path.getmtime(newest_screenshot)
+            
             # We found a newer screenshot!
+            agent_log("ScreenCaptureAgent", f"New screenshot detected: {newest_screenshot}")
             st.session_state.waiting_for_screenshot = False
             
             # Set up for analysis
             st.session_state.analyzing_screenshot = True
-            st.session_state.screenshot_to_analyze = current_screenshot
+            st.session_state.screenshot_to_analyze = newest_screenshot
             
             # Show loading message
             st.session_state.messages.append({
                 "role": "bot", 
                 "text": "I found your screenshot! Analyzing...",
                 "has_image": True,
-                "image_path": current_screenshot,
+                "image_path": newest_screenshot,
                 "is_analyzing_message": True
             })
             
+            # Update the last known time
+            st.session_state.last_screenshot_time = new_time
+            
             st.rerun()
         
-        # Manually poll for changes by forcing a rerun every few seconds
-        time.sleep(2)  # Wait 2 seconds before checking again
-        st.rerun()  # Force streamlit to rerun and check again
-        
-        # Use a placeholder to show we're waiting
-        st.text("Take a screenshot now, and I'll capture it.")
-        
-        # Add a cancel button
-        if st.button("Cancel screenshot capture"):
-            st.session_state.waiting_for_screenshot = False
-            st.session_state.messages.append({
-                "role": "bot", 
-                "text": "Screenshot capture cancelled.",
-                "has_image": False
-            })
-            st.rerun()
+        # Manually check again in a few seconds
+        time.sleep(3)
+        st.rerun()
 
 # If we're in analysis mode, perform the analysis
 elif st.session_state.analyzing_screenshot and st.session_state.screenshot_to_analyze:
     current_screenshot = st.session_state.screenshot_to_analyze
     
     # Analyze the screenshot
-    with st.spinner("Analyzing screenshot..."):
+    with st.spinner("TextExtractionAgent processing image content..."):
+        agent_log("TextExtractionAgent", "Extracting text from screenshot...")
+        time.sleep(3.5)  # Increased from 2 to 3.5
+        agent_log("TextExtractionAgent", "Text extraction complete")
+        
+        time.sleep(1)  # Add pause between agents
+        
+        agent_log("SummarizationAgent", "Generating content summary...")
+        time.sleep(4)  # Increased from 2 to 4
         analysis = analyze_screenshot(current_screenshot)
+        agent_log("SummarizationAgent", "Summary generation complete")
     
     # Create response message
     bot_reply = f"""I've analyzed your screenshot!<br><br>
     {analysis['summary']}<br><br>
     <b>📄 Summary saved to notes</b><br>
     Priority: <b>{analysis['priority']}</b>"""
+    
+    with st.spinner("NotePromptAgent saving extracted information..."):
+        agent_log("NotePromptAgent", "Creating note from extracted content...")
+        time.sleep(2.5)  # Increased from 1.5 to 2.5
+        
+        time.sleep(0.8)  # Add pause between agents
+        
+        agent_log("MemoryStorageAgent", "Storing note in long-term memory...")
+        time.sleep(2)  # Increased from 1 to 2
+        agent_log("MemoryStorageAgent", "Note stored successfully")
     
     # Update the last message or add a new one
     for i, msg in enumerate(st.session_state.messages):
@@ -185,6 +216,7 @@ elif st.session_state.analyzing_screenshot and st.session_state.screenshot_to_an
     st.session_state.screenshot_to_analyze = None
     
     # Add follow-up question about calendar
+    agent_log("UIAgent", "Displaying calendar integration prompt...")
     st.session_state.messages.append({
         "role": "bot", 
         "text": "Would you like me to save this to your calendar?",
@@ -215,7 +247,7 @@ for i, msg in enumerate(st.session_state.messages):
     # If calendar was just added in the previous message, ask about forwarding
     if msg.get("calendar_added") and i == len(st.session_state.messages) - 1:
         # Wait a little before asking follow-up
-        time.sleep(3)
+        time.sleep(4.5)  # Increased from 3 to 4.5
         
         # Add follow-up question about forwarding
         follow_up = "Is this related to the Eva startup you're working at? Would you like me to forward the email to anyone?"
@@ -264,8 +296,19 @@ if not st.session_state.waiting_for_screenshot:
                     if any(("calendar" in msg.get("text", "").lower() and "save" in msg.get("text", "").lower()) 
                            for msg in st.session_state.messages[-3:]):
                         # Show processing message and sleep
-                        with st.spinner("Adding to calendar..."):
-                            time.sleep(5)  # Simulate processing delay
+                        with st.spinner("QueryInterfaceAgent processing calendar request..."):
+                            agent_log("QueryInterfaceAgent", "Processing calendar integration request...")
+                            time.sleep(3)  # Increased from 2 to 3
+                            
+                            time.sleep(0.8)  # Add pause between agents
+                            
+                            agent_log("MemoryStorageAgent", "Retrieving event details from memory...")
+                            time.sleep(2.5)  # Increased from 1.5 to 2.5
+                            
+                            time.sleep(0.8)  # Add pause between agents
+                            
+                            agent_log("QueryInterfaceAgent", "Creating calendar event...")
+                            time.sleep(2.5)  # Increased from 1.5 to 2.5
                         
                         event_details = "Time: 5:00 PM to 8:00 PM<br>Location: TUM Venture Lab"
                         bot_reply = f"Done!<br>{event_details}"
@@ -282,6 +325,11 @@ if not st.session_state.waiting_for_screenshot:
                         
                     # Handle forwarding email question
                     elif any("forward the email to anyone" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
+                        with st.spinner("SemanticRetrievalAgent searching contacts..."):
+                            agent_log("SemanticRetrievalAgent", "Searching for relevant contacts...")
+                            time.sleep(3.5)  # Increased from 2 to 3.5
+                            agent_log("SemanticRetrievalAgent", "Found teammate: Vasiliy (klyosovv@gmail.com)")
+                        
                         # Add message about specific forwarding
                         bot_reply = "Would you like me to send this email to your teammate Vasiliy at klyosovv@gmail.com?"
                         
@@ -298,8 +346,23 @@ if not st.session_state.waiting_for_screenshot:
                     elif any("send this email to your teammate Vasiliy" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
                         # Show processing message and sleep
                         with st.spinner("Forwarding email..."):
-                            time.sleep(3)  # Simulate processing delay
+                            agent_log("RecallSummarizationAgent", "Retrieving email content from memory...")
+                            time.sleep(2.5)  # Increased from 1.5 to 2.5
                             
+                            time.sleep(0.8)  # Add pause between agents
+                            
+                            agent_log("QueryInterfaceAgent", "Preparing email draft...")
+                            time.sleep(2)  # Increased from 1 to 2
+                            
+                            time.sleep(0.8)  # Add pause between agents
+                            
+                            agent_log("QueryInterfaceAgent", "Sending email to klyosovv@gmail.com...")
+                            time.sleep(2.5)  # Increased from 1.5 to 2.5
+                            
+                            time.sleep(0.8)  # Add pause between agent completions
+                            
+                            agent_log("QueryInterfaceAgent", "Email sent successfully")
+                        
                         bot_reply = "Email forwarded to Vasiliy at klyosovv@gmail.com"
                         
                         st.session_state.messages.append({
