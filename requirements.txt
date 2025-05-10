@@ -1,0 +1,5 @@
+pyautogui
+pillow
+google-adk
+pytesseract
+bs4
