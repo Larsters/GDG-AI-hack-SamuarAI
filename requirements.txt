@@ -1,4 +1,5 @@
 pyautogui
 pillow
 google-adk
-mlx-use
+pytesseract
+bs4

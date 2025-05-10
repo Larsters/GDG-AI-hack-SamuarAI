@@ -25,5 +25,5 @@ SmartNotes
 - On the hotkey, what was the approach I saw on website X?
     - Search note embeddings for website X + approach
     - Pull matching records
-    - Summarize via LL< 
+    - Summarize via LLM
     - Display the summary
