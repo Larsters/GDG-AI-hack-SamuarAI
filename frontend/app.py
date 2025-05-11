@@ -51,8 +51,8 @@ def agent_log(agent_name, message):
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
 eva_logo_path = os.path.join(src_dir, "eva_logo.svg")
-eva1_path = os.path.join(src_dir, "eva1.svg")
-eva2_path = os.path.join(src_dir, "eva2.svg")
+eva1_path = os.path.join(src_dir, "eva2.svg")
+eva2_path = os.path.join(src_dir, "eva1.svg")
 
 # ------------------ STYLES ------------------ #
 st.markdown("""
@@ -86,7 +86,6 @@ st.markdown(f"""
     <div style="display:flex; align-items:center;">
       {eva1_html if os.path.exists(eva1_path) else ''}
       {eva_logo_html if os.path.exists(eva_logo_path) else ''}
-      <span style="margin-left:8px; font-weight:bold; font-size:18px;">EVA</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
