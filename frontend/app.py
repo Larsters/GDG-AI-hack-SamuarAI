@@ -6,7 +6,7 @@ import glob
 from PIL import Image
 import io
 import time
-from model_interact import analyze_screenshot, query_memory
+from model_interact import analyze_screenshot, query_memory, ask_openai_general
 
 st.set_page_config(page_title="EVA – Your Memory Assistant", layout="centered")
 
@@ -68,6 +68,7 @@ def agent_log(agent_name, message, step_id=None):
         if step_id not in st.session_state.reasoning_history:
             st.session_state.reasoning_history[step_id] = []
         st.session_state.reasoning_history[step_id].append(log_entry)
+
 
 # Update the show_agent_reasoning function to place it at the top with a collapsible style
 def show_agent_reasoning():
@@ -290,7 +291,7 @@ if "notes" not in st.session_state:
             "priority": "Medium",
             "source": "Calendar",
             "summary": "Meeting discussion about quarterly project updates",
-            "details": "Laura presented the Q2 roadmap for the product team. Key points:\n- UI redesign scheduled for late May\n- New feature development starting June 10\n- Team needs to prepare documentation by May 15\n- Follow-up meeting scheduled for May 20"
+            "details": "Laura presented the Q2 roadmap for the product team. Key points:\n- Discussion about AI agents and their impact on productivity\n- UI redesign scheduled for late May\n- New feature development starting June 10\n- Team needs to prepare documentation by May 15\n- Follow-up meeting scheduled for May 20"
         }
     ]
 
@@ -537,15 +538,17 @@ if selected_page == "Chat":
             break
 
     # ------------------ INPUT BOX ------------------ #
-    # Only show input if not waiting for screenshot
     if not st.session_state.waiting_for_screenshot:
-        user_input = st.text_input("Message", key="user_input")
-        if st.button("Send"):
-            if user_input:
-                # Add user message to chat
+        # wrap in a form that clears on submit
+        with st.form(key="chat_form", clear_on_submit=True):
+            user_input = st.text_input("Message")
+            submit = st.form_submit_button("Send")
+
+            if submit and user_input:
+                # add user message
                 st.session_state.messages.append({"role": "user", "text": user_input})
-                
-                # Handle Eva Snap command
+
+                # your existing message‐handling logic here...
                 if user_input.lower() == "eva, snap":
                     # Get current latest screenshot time to compare later
                     _, current_time = get_latest_screenshot()
@@ -715,13 +718,17 @@ if selected_page == "Chat":
                             
                             st.rerun()
                         else:
-                            # Default response for other messages
-                            bot_reply = "I received your message. To test the screenshot feature, type 'Eva, Snap'."
-                            
+                            # General fallback: ask ChatGPT
+                            with st.spinner("Asking ChatGPT..."):
+                                agent_log("GeneralAIAgent", "Querying ChatGPT for general knowledge...")
+                                time.sleep(1)
+                                answer = ask_openai_general(user_input)
+                                agent_log("GeneralAIAgent", "Received answer from ChatGPT.")
+                            bot_reply = f"{answer}<br><br><span style='color:#888; font-size:0.8em;'>knowledge retrieved from ChatGPT</span>"
                             st.session_state.messages.append({
-                                "role": "bot", 
+                                "role": "bot",
                                 "text": bot_reply,
-                                "has_image": False
+                                "has_image": False,
+                                "from_web": True
                             })
-                            
                             st.rerun()

@@ -18,6 +18,23 @@ def encode_image_to_base64(image_path):
     """Convert an image file to base64 for API transmission"""
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
+    
+def ask_openai_general(query):
+    if not openai_api_key:
+        return "Sorry, I can't answer that right now."
+    try:
+        client = openai.OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": query}
+            ],
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error: {e}"
 
 def analyze_screenshot(screenshot_path):
     """
