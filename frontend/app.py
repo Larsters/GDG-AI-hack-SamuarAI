@@ -121,18 +121,19 @@ st.markdown("""
     }
     .eva2-wrapper {
         position: relative;
-        height: 400px; /* This controls how much vertical space you give the image */
+        height: 450px; /* Adjust as needed for vertical space */
         width: 100%;
     }
-            
+                
     .eva2-center {
         position: absolute;
-        top: 90%; /* increased from 50% to 70% */
+        top: 50%; /* Position lower if needed */
         left: 50%;
         transform: translate(-50%, -50%);
-        opacity: 0.05;
-        width: 200px;
+        width: 180px;
         z-index: 0;
+        display: block;
+        pointer-events: none;
     }
 
     .agent-log {
@@ -371,8 +372,13 @@ if selected_page == "Chat":
     # ------------------ CHAT DISPLAY ------------------ #
     # Add eva2 SVG in the center of the chat area if it exists
     if os.path.exists(eva2_path):
-        st.markdown(f'<div style="position:relative;"><img src="data:image/svg+xml;base64,{get_image_as_base64(eva2_path)}" class="eva2-center" alt="EVA background"/></div>', unsafe_allow_html=True)
-
+        st.markdown(f'''
+        <div class="eva2-wrapper">
+            <img src="data:image/svg+xml;base64,{get_image_as_base64(eva2_path)}" 
+                class="eva2-center" alt="EVA background"/>
+        </div>
+        ''', unsafe_allow_html=True)
+        
     # Start the chat container
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
