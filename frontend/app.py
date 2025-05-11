@@ -71,19 +71,14 @@ def agent_log(agent_name, message, step_id=None):
 
 # Update the show_agent_reasoning function to place it at the top with a collapsible style
 def show_agent_reasoning():
-    """Show the collected agent logs in a collapsible section"""
+    """Show the collected agent logs in a collapsible section using a Streamlit expander"""
     if st.session_state.agent_logs:
-        logs_html = "".join(st.session_state.agent_logs)
+        with st.expander("View agent reasoning"):
+            for log in st.session_state.agent_logs:
+                st.markdown(log, unsafe_allow_html=True)
         
         # Create a collapsible section with HTML/JS
-        st.markdown(f"""
-        <div class="reasoning-container">
-            <div class="reasoning-header" id="reasoning-header" onclick="toggleReasoning()">⊕ View agent reasoning</div>
-            <div class="reasoning-content" id="reasoning-content">
-                {logs_html}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Combine all logs into a single HTML string
 
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
@@ -227,6 +222,24 @@ st.markdown("""
         border-radius: 0 2px 2px 0;
     }
     </style>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', (event) => {
+        // Add the toggleReasoning function to the window object so it's globally accessible
+        window.toggleReasoning = function() {
+            const content = document.getElementById('reasoning-content');
+            const header = document.getElementById('reasoning-header');
+            
+            if (content.className.includes('reasoning-content-active')) {
+                content.className = 'reasoning-content';
+                header.innerHTML = '⊕ View agent reasoning';
+            } else {
+                content.className = 'reasoning-content reasoning-content-active';
+                header.innerHTML = '⊖ Hide agent reasoning';
+            }
+        }
+    });
+    </script>
 """, unsafe_allow_html=True)
 
 # ------------------ HEADER ------------------ #
@@ -269,37 +282,44 @@ if st.session_state.waiting_for_screenshot:
 if selected_page == "Memory":
     st.header("Memory Storage")
     
-    # Create a predefined note about Eva startup
+    # Create predefined notes
     if "notes" not in st.session_state:
-        st.session_state.notes = [{
-            "title": "Eva Startup",
-            "date": "May 11, 2025",
-            "type": "Hackathon",
-            "priority": "High",
-            "source": "Common Knowledge",
-            "summary": "Startup information related to Eva assistant development",
-            "details": "A startup where Asylbek asylbekbug@gmail.com works with Vasiliy klyosovv@gmail.com on a project to make a new OS-native approach to use notes."
-        }]
+        st.session_state.notes = [
+            {
+                "title": "Eva Startup",
+                "date": "May 11, 2025",
+                "type": "Hackathon",
+                "priority": "High",
+                "source": "Common Knowledge",
+                "summary": "Startup information related to Eva assistant development",
+                "details": "A startup where Asylbek asylbekbug@gmail.com works with Vasiliy klyosovv@gmail.com on a project to make a new OS-native approach to use notes."
+            },
+            {
+                "title": "Work Meeting with Laura",
+                "date": "May 4, 2025",
+                "type": "Meeting",
+                "priority": "Medium",
+                "source": "Calendar",
+                "summary": "Meeting discussion about quarterly project updates",
+                "details": "Laura presented the Q2 roadmap for the product team. Key points:\n- UI redesign scheduled for late May\n- New feature development starting June 10\n- Team needs to prepare documentation by May 15\n- Follow-up meeting scheduled for May 20"
+            }
+        ]
     
-    # Add a visual indicator if we have just one note - MOVED TO TOP
-    if len(st.session_state.notes) == 1:
-        st.info("1 memory found. Capture more screenshots in Chat to create additional notes.")
+    # Add a visual indicator about memory count - MOVED TO TOP
+    if len(st.session_state.notes) > 0:
+        st.info(f"{len(st.session_state.notes)} memories found. Capture more screenshots in Chat to create additional notes.")
     
     # Display the notes
     for note in st.session_state.notes:
         with st.expander(f"{note['title']} ({note.get('priority', 'Medium')})"):
-            st.markdown(f"""
-            ### {note['title']}
-            **Date Added:** {note['date']}  
-            **Type:** {note.get('type', 'Note')}  
-            **Source:** {note.get('source', 'Screenshot')}
-            **Priority:** {note.get('priority', 'Medium')}
-            
-            **Summary:** {note.get('summary', '')}
-            
-            **Details:**
-            {note.get('details', '')}
-            """)
+            st.markdown(f"### {note['title']}")
+            st.write(f"**Date Added:** {note['date']}")
+            st.write(f"**Type:** {note.get('type', 'Note')}")
+            st.write(f"**Source:** {note.get('source', 'Screenshot')}")
+            st.write(f"**Priority:** {note.get('priority', 'Medium')}")
+            st.write(f"**Summary:** {note.get('summary', '')}")
+            st.write("**Details:**")
+            st.write(note.get('details', ''))
 
 # ------------------ HEADER ------------------ #
 if selected_page == "Chat":
@@ -379,8 +399,7 @@ if selected_page == "Chat":
                 
                 st.rerun()
             
-            # Manually check again in a few seconds
-            time.sleep(3)
+            time.sleep(2)
             st.rerun()
 
     # If we're in analysis mode, perform the analysis
@@ -390,13 +409,13 @@ if selected_page == "Chat":
         # Analyze the screenshot
         with st.spinner("TextExtractionAgent processing image content..."):
             agent_log("TextExtractionAgent", "Extracting text from screenshot...")
-            time.sleep(3.5)  # Increased from 2 to 3.5
+            time.sleep(2.5)  
             agent_log("TextExtractionAgent", "Text extraction complete")
             
-            time.sleep(1)  # Add pause between agents
+            time.sleep(1)  
             
             agent_log("SummarizationAgent", "Generating content summary...")
-            time.sleep(4)  # Increased from 2 to 4
+            time.sleep(2) 
             analysis = analyze_screenshot(current_screenshot)
             agent_log("SummarizationAgent", "Summary generation complete")
         
@@ -408,12 +427,12 @@ if selected_page == "Chat":
         
         with st.spinner("NotePromptAgent saving extracted information..."):
             agent_log("NotePromptAgent", "Creating note from extracted content...")
-            time.sleep(2.5)  # Increased from 1.5 to 2.5
+            time.sleep(1.5)  
             
-            time.sleep(0.8)  # Add pause between agents
+            time.sleep(0.5) 
             
             agent_log("MemoryStorageAgent", "Storing note in long-term memory...")
-            time.sleep(2)  # Increased from 1 to 2
+            time.sleep(1) 
             agent_log("MemoryStorageAgent", "Note stored successfully")
         
         # Update the last message or add a new one
@@ -451,6 +470,8 @@ if selected_page == "Chat":
                 class="eva2-center" alt="EVA background"/>
         </div>
         ''', unsafe_allow_html=True)
+
+    show_agent_reasoning()
         
     # Start the chat container
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
@@ -475,7 +496,7 @@ if selected_page == "Chat":
         # If calendar was just added in the previous message, ask about forwarding
         if msg.get("calendar_added") and i == len(st.session_state.messages) - 1:
             # Wait a little before asking follow-up
-            time.sleep(4.5)  # Increased from 3 to 4.5
+            time.sleep(3)  # Increased from 3 to 4.5
             
             # Add follow-up question about forwarding
             follow_up = "Is this related to the Eva startup you're working at? Would you like me to forward the email to anyone?"
@@ -526,21 +547,21 @@ if selected_page == "Chat":
                             # Show processing message and sleep
                             with st.spinner("QueryInterfaceAgent processing calendar request..."):
                                 agent_log("QueryInterfaceAgent", "Processing calendar integration request...")
-                                time.sleep(3)  # Increased from 2 to 3
+                                time.sleep(2)  
                                 
-                                time.sleep(0.8)  # Add pause between agents
+                                time.sleep(0.5)
                                 
                                 agent_log("MemoryStorageAgent", "Retrieving event details from memory...")
-                                time.sleep(2.5)  # Increased from 1.5 to 2.5
+                                time.sleep(1.5)
                                 
-                                time.sleep(0.8)  # Add pause between agents
+                                time.sleep(0.5)
                                 
                                 agent_log("QueryInterfaceAgent", "Creating calendar event...")
-                                time.sleep(2.5)  # Increased from 1.5 to 2.5
+                                time.sleep(2.5) 
                                 
                                 # Add a new memory about this event being connected to Eva startup
                                 agent_log("MemoryStorageAgent", "Creating connection between event and Eva startup...")
-                                time.sleep(1.5)
+                                time.sleep(1)
                                 
                                 # Add the new note to memory
                                 new_startup_event = {
@@ -575,7 +596,7 @@ if selected_page == "Chat":
                         elif any("forward the email to anyone" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
                             with st.spinner("SemanticRetrievalAgent searching contacts..."):
                                 agent_log("SemanticRetrievalAgent", "Searching for relevant contacts...")
-                                time.sleep(3.5)  # Increased from 2 to 3.5
+                                time.sleep(2.3)  # Increased from 2 to 3.5
                                 agent_log("SemanticRetrievalAgent", "Found teammate: Vasiliy (klyosovv@gmail.com)")
                             
                             # Add message about specific forwarding
@@ -595,19 +616,19 @@ if selected_page == "Chat":
                             # Show processing message and sleep
                             with st.spinner("Forwarding email..."):
                                 agent_log("RecallSummarizationAgent", "Retrieving email content from memory...")
-                                time.sleep(2.5)  # Increased from 1.5 to 2.5
+                                time.sleep(2)  
                                 
-                                time.sleep(0.8)  # Add pause between agents
+                                time.sleep(0.5)  
                                 
                                 agent_log("QueryInterfaceAgent", "Preparing email draft...")
-                                time.sleep(2)  # Increased from 1 to 2
+                                time.sleep(1)  
                                 
-                                time.sleep(0.8)  # Add pause between agents
+                                time.sleep(0.8)  
                                 
                                 agent_log("QueryInterfaceAgent", "Sending email to klyosovv@gmail.com...")
-                                time.sleep(2.5)  # Increased from 1.5 to 2.5
+                                time.sleep(1.5)  
                                 
-                                time.sleep(0.8)  # Add pause between agent completions
+                                time.sleep(0.5)  
                                 
                                 agent_log("QueryInterfaceAgent", "Email sent successfully")
                             
