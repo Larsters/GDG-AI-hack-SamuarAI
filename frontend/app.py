@@ -154,37 +154,37 @@ st.markdown("""
 if selected_page == "Memory":
     st.header("Memory Storage")
     
-    # Display empty state or mock notes
-    if "notes" not in st.session_state or not st.session_state.notes:
-        st.write("No memories stored yet. Capture screenshots in the Chat to create notes.")
-        
-        # Add a sample/mock note for demonstration
-        with st.expander("Example Note (Demo Only)"):
-            st.markdown("""
-            ### Startup Pitch Event
-            **Date Added:** May 11, 2025  
-            **Priority:** High  
-            **Summary:** Email invitation about a startup pitch event at TUM Venture Lab.
+    # Create a predefined note about Eva startup
+    if "notes" not in st.session_state:
+        st.session_state.notes = [{
+            "title": "Eva Startup",
+            "date": "May 11, 2025",
+            "type": "Hackathon",
+            "priority": "High",
+            "source": "Common Knowledge",
+            "summary": "Startup information related to Eva assistant development",
+            "details": "A startup where Asylbek asylbekbug@gmail.com works with Vasiliy klyosovv@gmail.com on a project to make a new OS-native approach to use notes."
+        }]
+    
+    # Add a visual indicator if we have just one note - MOVED TO TOP
+    if len(st.session_state.notes) == 1:
+        st.info("1 memory found. Capture more screenshots in Chat to create additional notes.")
+    
+    # Display the notes
+    for note in st.session_state.notes:
+        with st.expander(f"{note['title']} ({note.get('priority', 'Medium')})"):
+            st.markdown(f"""
+            ### {note['title']}
+            **Date Added:** {note['date']}  
+            **Type:** {note.get('type', 'Note')}  
+            **Source:** {note.get('source', 'Screenshot')}
+            **Priority:** {note.get('priority', 'Medium')}
+            
+            **Summary:** {note.get('summary', '')}
             
             **Details:**
-            - Event: Startup Pitch
-            - Location: TUM Venture Lab  
-            - Time: 5:00 PM - 8:00 PM
-            - Date: Next Thursday
+            {note.get('details', '')}
             """)
-    else:
-        # Display actual notes when implemented
-        for note in st.session_state.notes:
-            with st.expander(f"{note['title']} ({note['priority']})"):
-                st.markdown(f"""
-                ### {note['title']}
-                **Date Added:** {note['date']}  
-                **Priority:** {note['priority']}  
-                **Summary:** {note['summary']}
-                
-                **Details:**
-                {note['details']}
-                """)
 
 # ------------------ HEADER ------------------ #
 if selected_page == "Chat":
