@@ -121,7 +121,7 @@ st.markdown("""
     }
     .eva2-wrapper {
         position: relative;
-        height: 450px; /* Adjust as needed for vertical space */
+        height: 400px; /* Adjust as needed for vertical space */
         width: 100%;
     }
                 
