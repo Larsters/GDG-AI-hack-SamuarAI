@@ -57,20 +57,17 @@ if "agent_logs" not in st.session_state:
 if "reasoning_history" not in st.session_state:
     st.session_state.reasoning_history = {}
 
-# Replace the agent_log function with one that collects logs instead of displaying them
 def agent_log(agent_name, message, step_id=None):
     """Add an agent interaction log to the collection"""
     log_entry = f"<div class='agent-log'><b>{agent_name}</b>: {message}</div>"
     st.session_state.agent_logs.append(log_entry)
     
-    # If step_id is provided, store the log in that step's history
     if step_id:
         if step_id not in st.session_state.reasoning_history:
             st.session_state.reasoning_history[step_id] = []
         st.session_state.reasoning_history[step_id].append(log_entry)
 
 
-# Update the show_agent_reasoning function to place it at the top with a collapsible style
 def show_agent_reasoning():
     """Show the collected agent logs in a collapsible section using a Streamlit expander"""
     if st.session_state.agent_logs:
@@ -78,8 +75,6 @@ def show_agent_reasoning():
             for log in st.session_state.agent_logs:
                 st.markdown(log, unsafe_allow_html=True)
         
-        # Create a collapsible section with HTML/JS
-        # Combine all logs into a single HTML string
 
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
@@ -290,11 +285,14 @@ if "notes" not in st.session_state:
             "type": "Meeting",
             "priority": "Medium",
             "source": "Calendar",
-            "summary": "Meeting discussion about quarterly project updates",
-            "details": "Laura presented the Q2 roadmap for the product team. Key points:\n- Discussion about AI agents and their impact on productivity\n- UI redesign scheduled for late May\n- New feature development starting June 10\n- Team needs to prepare documentation by May 15\n- Follow-up meeting scheduled for May 20"
+            "summary": "Meeting discussion about the upcoming hackathon",
+            "details": "Laura Discussion about the upcoming Milano Hackathon in late May\n- Team needs to prepare for hackathon by May 15\n- Follow-up meeting scheduled for May 20"
         }
     ]
 
+# Add a TODO list to session state initialization
+if "todos" not in st.session_state:
+    st.session_state.todos = []  # Will store TODO items
 
 # ------------------ WAIT FOR SCREENSHOT ------------------ #
 # If we're in screenshot waiting mode, check for new screenshots
@@ -344,6 +342,48 @@ if selected_page == "Memory":
             st.write(f"**Summary:** {note.get('summary', '')}")
             st.write("**Details:**")
             st.write(note.get('details', ''))
+
+    # Add TODOs section
+    st.markdown("---")
+    st.subheader("TODO Items")
+
+    # Check if we have any TODOs
+    if not st.session_state.todos:
+        st.info("No TODO items yet. These will appear when you create tasks.")
+    else:
+        # Sort TODOs by priority
+        sorted_todos = sorted(
+            st.session_state.todos, 
+            key=lambda t: {"High": 0, "Medium": 1, "Low": 2}.get(t.get("priority"), 3)
+        )
+        
+        # Display each TODO in an expander
+        for i, todo in enumerate(sorted_todos):
+            priority_color = {
+                "High": "🔴", 
+                "Medium": "🟠",
+                "Low": "🟢"
+            }.get(todo.get("priority"), "⚪")
+            
+            # Show completion status
+            status = "✓" if todo.get("completed", False) else " "
+            
+            with st.expander(f"{priority_color} [{status}] {todo['title']} (Due: {todo.get('due_date', 'No date')})"):
+                st.write(f"**Priority:** {todo.get('priority', 'Medium')}")
+                st.write(f"**Due Date:** {todo.get('due_date', 'Not specified')}")
+                st.write(f"**Description:**")
+                st.write(todo.get('description', 'No description provided'))
+                
+                # Add complete/delete buttons
+                col1, col2 = st.columns(2)
+                if not todo.get("completed", False):
+                    if col1.button("Mark Complete", key=f"complete_todo_{i}"):
+                        st.session_state.todos[i]["completed"] = True
+                        st.rerun()
+                
+                if col2.button("Delete", key=f"delete_todo_{i}"):
+                    st.session_state.todos.pop(i)
+                    st.rerun()
 
 # ------------------ HEADER ------------------ #
 if selected_page == "Chat":
@@ -423,7 +463,6 @@ if selected_page == "Chat":
                 
                 st.rerun()
             
-            time.sleep(2)
             st.rerun()
 
     # If we're in analysis mode, perform the analysis
@@ -433,13 +472,8 @@ if selected_page == "Chat":
         # Analyze the screenshot
         with st.spinner("TextExtractionAgent processing image content..."):
             agent_log("TextExtractionAgent", "Extracting text from screenshot...")
-            time.sleep(2.5)  
-            agent_log("TextExtractionAgent", "Text extraction complete")
-            
-            time.sleep(1)  
-            
+            agent_log("TextExtractionAgent", "Text extraction complete")            
             agent_log("SummarizationAgent", "Generating content summary...")
-            time.sleep(2) 
             analysis = analyze_screenshot(current_screenshot)
             agent_log("SummarizationAgent", "Summary generation complete")
         
@@ -451,26 +485,40 @@ if selected_page == "Chat":
         
         with st.spinner("NotePromptAgent saving extracted information..."):
             agent_log("NotePromptAgent", "Creating note from extracted content...")
-            time.sleep(1.5)  
-            
-            time.sleep(0.5) 
-            
             agent_log("MemoryStorageAgent", "Storing note in long-term memory...")
-            time.sleep(1) 
             agent_log("MemoryStorageAgent", "Note stored successfully")
         
         # Update the last message or add a new one
         for i, msg in enumerate(st.session_state.messages):
-            if msg.get("is_analyzing_message", False):
-                # Replace the placeholder message
-                st.session_state.messages[i] = {
+            # Look for the hackathon query flag
+            if msg.get("hackathon_query") and i == len(st.session_state.messages) - 1:
+                # Calculate days until next meeting with Laura (May 20)
+                from datetime import datetime, date
+                today = datetime.now().date()
+                next_meeting = date(2025, 5, 20)  # Laura's follow-up meeting from her memo
+                days_until = (next_meeting - today).days
+                
+                time.sleep(2.5)  # Pause before showing follow-up
+                
+                with st.spinner("RecallSummarizationAgent connecting context..."):
+                    agent_log("RecallSummarizationAgent", "Retrieving meeting schedule from memory...")
+                    agent_log("RecallSummarizationAgent", "Found upcoming meeting with Laura on May 20")
+                
+                # Add follow-up suggestion
+                follow_up = f"I notice your upcoming meeting with Laura on May 20 ({days_until} days from now) will involve more discussion about the Milano Hackathon. Would you like me to add a TODO to prepare for the hackathon before the meeting?<br><br><span style='color:#888; font-size:0.8em;'>knowledge connected from memory</span>"
+                
+                st.session_state.messages.append({
                     "role": "bot", 
-                    "text": bot_reply,
-                    "has_image": True,
-                    "image_path": current_screenshot
-                }
+                    "text": follow_up,
+                    "has_image": False,
+                    "todo_suggestion": True  # Flag this as a TODO suggestion
+                })
+                
+                # Remove the flag so we don't add this suggestion again
+                st.session_state.messages[i]["hackathon_query"] = False
+                
+                st.rerun()
                 break
-        
         # Reset analysis state
         st.session_state.analyzing_screenshot = False
         st.session_state.screenshot_to_analyze = None
@@ -519,10 +567,7 @@ if selected_page == "Chat":
     for i, msg in enumerate(st.session_state.messages):
         # If calendar was just added in the previous message, ask about forwarding
         if msg.get("calendar_added") and i == len(st.session_state.messages) - 1:
-            # Wait a little before asking follow-up
-            time.sleep(3)  # Increased from 3 to 4.5
-            
-            # Add follow-up question about forwarding
+
             follow_up = "Is this related to the Eva startup you're working at? Would you like me to forward the email to anyone?"
             
             st.session_state.messages.append({
@@ -533,6 +578,36 @@ if selected_page == "Chat":
             
             # Remove the flag so we don't keep adding this message
             st.session_state.messages[i].pop("calendar_added", None)
+            
+            st.rerun()
+            break
+
+    # Check if we just answered an AI agents question
+    for i, msg in enumerate(st.session_state.messages):
+        # Look for the AI agent query flag
+        if msg.get("hackathon_query") and i == len(st.session_state.messages) - 1:
+            # Calculate days until next meeting with Laura (May 20)
+            from datetime import datetime, date
+            today = datetime.now().date()
+            next_meeting = date(2025, 5, 20)  # Laura's follow-up meeting from her memo
+            days_until = (next_meeting - today).days
+            
+            with st.spinner("RecallSummarizationAgent connecting context..."):
+                agent_log("RecallSummarizationAgent", "Retrieving meeting schedule from memory...")
+                agent_log("RecallSummarizationAgent", "Found upcoming meeting with Laura on May 20")
+            
+            # Add follow-up suggestion
+            follow_up = f"I notice your upcoming meeting with Laura on May 20 ({days_until} days from now) will involve more discussion about the Milano Hackathon. Would you like me to add a TODO to prepare for the hackathon before the meeting?<br><br><span style='color:#888; font-size:0.8em;'>knowledge connected from memory</span>"
+            
+            st.session_state.messages.append({
+                "role": "bot", 
+                "text": follow_up,
+                "has_image": False,
+                "todo_suggestion": True  # Flag this as a TODO suggestion
+            })
+            
+            # Remove the flag so we don't add this suggestion again
+            st.session_state.messages[i].pop("ai_agent_query", None)
             
             st.rerun()
             break
@@ -566,29 +641,18 @@ if selected_page == "Chat":
                     st.rerun()
                 else:
                     # Default response based on conversation flow
-                    if user_input.lower() in ["yes", "yeah", "sure", "ok", "y"]:
+                    if user_input.lower() in ["yes", "yeah", "sure", "ok", "y"] or "please" in user_input.lower() or "priority" in user_input.lower():
                         # Handle calendar confirmation
                         if any(("calendar" in msg.get("text", "").lower() and "save" in msg.get("text", "").lower()) 
                                for msg in st.session_state.messages[-3:]):
-                            # Show processing message and sleep
                             with st.spinner("QueryInterfaceAgent processing calendar request..."):
                                 agent_log("QueryInterfaceAgent", "Processing calendar integration request...")
-                                time.sleep(2)  
-                                
-                                time.sleep(0.5)
-                                
                                 agent_log("MemoryStorageAgent", "Retrieving event details from memory...")
-                                time.sleep(1.5)
-                                
-                                time.sleep(0.5)
-                                
                                 agent_log("QueryInterfaceAgent", "Creating calendar event...")
-                                time.sleep(2.5) 
-                                
+
                                 # Add a new memory about this event being connected to Eva startup
                                 agent_log("MemoryStorageAgent", "Creating connection between event and Eva startup...")
-                                time.sleep(1)
-                                
+
                                 # Add the new note to memory
                                 new_startup_event = {
                                     "title": "Startup Pitch Event - Eva Team Attending",
@@ -622,7 +686,6 @@ if selected_page == "Chat":
                         elif any("forward the email to anyone" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
                             with st.spinner("SemanticRetrievalAgent searching contacts..."):
                                 agent_log("SemanticRetrievalAgent", "Searching for relevant contacts...")
-                                time.sleep(2.3)
                                 agent_log("SemanticRetrievalAgent", "Found teammate: Vasiliy (klyosovv@gmail.com)")
                             
                             # Add message about specific forwarding with knowledge retrieved tag
@@ -639,26 +702,52 @@ if selected_page == "Chat":
                             
                         # Handle specific forwarding confirmation  
                         elif any("send this email to your teammate Vasiliy" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
-                            # Show processing message and sleep
                             with st.spinner("Forwarding email..."):
                                 agent_log("RecallSummarizationAgent", "Retrieving email content from memory...")
-                                time.sleep(2)  
-                                
-                                time.sleep(0.5)  
-                                
+     
                                 agent_log("QueryInterfaceAgent", "Preparing email draft...")
-                                time.sleep(1)  
-                                
-                                time.sleep(0.8)  
-                                
+       
                                 agent_log("QueryInterfaceAgent", "Sending email to klyosovv@gmail.com...")
-                                time.sleep(1.5)  
-                                
-                                time.sleep(0.5)  
-                                
+  
                                 agent_log("QueryInterfaceAgent", "Email sent successfully")
                             
                             bot_reply = "Email forwarded to Vasiliy at klyosovv@gmail.com"
+                            
+                            st.session_state.messages.append({
+                                "role": "bot", 
+                                "text": bot_reply,
+                                "has_image": False
+                            })
+                            
+                            st.rerun()
+                        
+                        # Handle TODO suggestion confirmation
+                        elif any(msg.get("todo_suggestion", False) for msg in st.session_state.messages[-3:]):
+                            with st.spinner("TaskManagerAgent creating todo..."):
+                                agent_log("TaskManagerAgent", "Creating new high-priority task...")
+                                agent_log("TaskManagerAgent", "Setting due date before May 20 meeting...")
+                                
+                                # Create the TODO item
+                                new_todo = {
+                                    "title": "Prepare for Milano Hackathon",
+                                    "description": "Gather ideas, prepare development environment, and stock up on energy drinks before the meeting with Laura on May 20.",
+                                    "priority": "High",
+                                    "due_date": "May 19, 2025",  # Day before the meeting
+                                    "completed": False
+                                }
+                                
+                                # Add to TODOs
+                                if "todos" not in st.session_state:
+                                    st.session_state.todos = []
+                                    
+                                st.session_state.todos.append(new_todo)
+                                agent_log("TaskManagerAgent", "Todo item added to task list")
+                            
+                            # Check if user mentioned urgency/priority
+                            priority_mentioned = "urgent" in user_input.lower() or "priority" in user_input.lower() or "important" in user_input.lower()
+                            priority_text = "high-priority " if priority_mentioned else ""
+                            
+                            bot_reply = f"I've added a {priority_text}TODO to prepare for the Milano Hackathon before your May 20 meeting with Laura."
                             
                             st.session_state.messages.append({
                                 "role": "bot", 
@@ -686,10 +775,8 @@ if selected_page == "Chat":
                             # Use various agents for memory retrieval
                             with st.spinner("Searching memories..."):
                                 agent_log("SemanticRetrievalAgent", "Searching memory storage for relevant information...")
-                                time.sleep(1.5)
                                 
                                 agent_log("RecallSummarizationAgent", "Retrieving and summarizing memory content...")
-                                time.sleep(2)
                                 
                                 # Make sure notes exist before querying
                                 if "notes" not in st.session_state:
@@ -721,14 +808,19 @@ if selected_page == "Chat":
                             # General fallback: ask ChatGPT
                             with st.spinner("Asking ChatGPT..."):
                                 agent_log("GeneralAIAgent", "Querying ChatGPT for general knowledge...")
-                                time.sleep(1)
                                 answer = ask_openai_general(user_input)
                                 agent_log("GeneralAIAgent", "Received answer from ChatGPT.")
+                                
                             bot_reply = f"{answer}<br><br><span style='color:#888; font-size:0.8em;'>knowledge retrieved from ChatGPT</span>"
+                            
+                            is_hackathon_query = any(term in user_input.lower() for term in ["hackathon", "hackaton", "hack-a-thon", "coding event"])
+                            
                             st.session_state.messages.append({
                                 "role": "bot",
                                 "text": bot_reply,
                                 "has_image": False,
-                                "from_web": True
+                                "from_web": True,
+                                "hackathon_query": is_hackathon_query 
                             })
+                            
                             st.rerun()

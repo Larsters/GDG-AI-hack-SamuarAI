@@ -2,6 +2,8 @@ import os
 from PIL import Image
 import io
 import base64
+
+from pyautogui import sleep
 import openai
 import json
 from dotenv import load_dotenv
@@ -20,6 +22,11 @@ def encode_image_to_base64(image_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
     
 def ask_openai_general(query):
+    # Add special case for hackathon definition
+    if "what is a hackathon" in query.lower() or "what is hackathon" in query.lower() or "hackathon" in query.lower() and "what" in query.lower():
+        sleep(2)
+        return "A hackathon is a caffeine-fueled coding marathon where sleep-deprived programmers transform energy drinks into code, wild ideas into demos, and perfectly functional humans into zombies who somehow still write working software. The Milano Hackathon mentioned in your meeting with Laura is coming up soon!"
+    
     if not openai_api_key:
         return "Sorry, I can't answer that right now."
     try:
@@ -27,10 +34,15 @@ def ask_openai_general(query):
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": 
+                 """You are a helpful assistant that provides concise answers.
+                 Keep your responses under 3 sentences when possible.
+                 Focus only on the most important information.
+                 Avoid unnecessary details or explanations.
+                 Write in a clear, direct style."""},
                 {"role": "user", "content": query}
             ],
-            max_tokens=300
+            max_tokens=150
         )
         return response.choices[0].message.content
     except Exception as e:
