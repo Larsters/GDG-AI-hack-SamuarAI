@@ -46,7 +46,7 @@ def get_latest_screenshot():
 # Add a simulated agent log function
 def agent_log(agent_name, message):
     """Display an agent interaction log"""
-    st.markdown(f"<div style='font-size:0.8em; color:#666; background:#f0f0f0; padding:3px 6px; margin:2px 0; border-left:3px solid #444;'><b>{agent_name}</b>: {message}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='agent-log'><b>{agent_name}</b>: {message}</div>", unsafe_allow_html=True)
 
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
@@ -64,6 +64,56 @@ st.markdown("""
         margin-bottom: 20px;
     }
     .header img { height: 30px; }
+    
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .message-bot {
+        background-color: #ffffff;  /* White background */
+        color: #000000;  /* Black text */
+        border: 1px solid #e1e1e1;  /* Light gray border for definition */
+        border-radius: 15px 15px 15px 0;
+        padding: 10px 15px;
+        margin-right: 25%;
+        margin-left: 0;
+        position: relative;
+        display: inline-block;
+        max-width: 75%;
+        align-self: flex-start;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .message-user {
+        background-color: #2e6fdb;
+        color: white;
+        border-radius: 15px 15px 0 15px;
+        padding: 10px 15px;
+        margin-left: 25%;
+        margin-right: 0;
+        text-align: right;
+        position: relative;
+        display: inline-block;
+        max-width: 75%;  /* Limit width */
+        align-self: flex-end;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .message-wrapper-bot {
+        display: flex;
+        justify-content: flex-start;
+        width: 100%;
+    }
+    
+    .message-wrapper-user {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+    }
+    
     .eva2-center {
         position: absolute;
         top: 50%;
@@ -72,6 +122,24 @@ st.markdown("""
         opacity: 0.05;
         width: 200px;
         z-index: 0;
+    }
+    
+    .agent-log {
+        font-size: 0.8em;
+        color: #555;
+        background: #f5f5f5;
+        padding: 4px 8px;
+        margin: 3px 0;
+        border-left: 3px solid #2e6fdb;
+        border-radius: 0 4px 4px 0;
+    }
+    
+    /* Image container styles */
+    .screenshot-container {
+        margin: 8px 0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -230,16 +298,22 @@ elif st.session_state.analyzing_screenshot and st.session_state.screenshot_to_an
 if os.path.exists(eva2_path):
     st.markdown(f'<div style="position:relative;"><img src="data:image/svg+xml;base64,{get_image_as_base64(eva2_path)}" class="eva2-center" alt="EVA background"/></div>', unsafe_allow_html=True)
 
-# Display messages using standard Streamlit components
+# Start the chat container
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
+# Display messages using styled divs
 for msg in st.session_state.messages:
     if msg["role"] == "bot":
-        with st.container():
-            st.write(msg["text"], unsafe_allow_html=True)
-            if msg.get("has_image") and "image_path" in msg:
-                st.image(msg["image_path"], caption="Screenshot", use_container_width=True)
+        st.markdown(f'<div class="message-wrapper-bot"><div class="message-bot">{msg["text"]}</div></div>', unsafe_allow_html=True)
+        if msg.get("has_image") and "image_path" in msg:
+            st.markdown('<div class="screenshot-container">', unsafe_allow_html=True)
+            st.image(msg["image_path"], caption="Screenshot", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     else:
-        with st.container():
-            st.write(f"<div style='text-align: right;'>{msg['text']}</div>", unsafe_allow_html=True)
+        st.markdown(f'<div class="message-wrapper-user"><div class="message-user">{msg["text"]}</div></div>', unsafe_allow_html=True)
+
+# Close the chat container
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ------------------ FOLLOW UP QUESTIONS ------------------ #
 # Check if we need to automatically add a follow-up question
