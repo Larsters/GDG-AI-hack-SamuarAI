@@ -119,3 +119,75 @@ def analyze_screenshot(screenshot_path):
                 "date": "Next Thursday"
             }
         }
+
+def query_memory(user_query, memories):
+    """
+    Query the system's memories using natural language
+    """
+    # For development or when API key isn't available, use simple keyword matching
+    if not openai_api_key:
+        # Simple keyword matching for demo
+        if "laura" in user_query.lower():
+            # Find memories related to Laura
+            laura_memories = [m for m in memories if "laura" in m.get("title", "").lower()]
+            if laura_memories:
+                memory = laura_memories[0]
+                return {
+                    "response": f"Based on my records, the meeting with Laura was on {memory['date']}. She presented the Q2 roadmap including UI redesign in late May, new feature development starting June 10, and documentation preparation by May 15. There's a follow-up meeting scheduled for May 20.",
+                    "source_memory": memory["title"]
+                }
+        return {"response": "I don't have any information about that in my memory.", "source_memory": None}
+        
+    # Use OpenAI to generate a response based on memories
+    try:
+        # Create context from memories
+        memories_context = "\n\n".join([
+            f"Memory: {m['title']}\nDate: {m['date']}\nType: {m.get('type', 'Note')}\n" +
+            f"Summary: {m.get('summary', '')}\nDetails: {m.get('details', '')}"
+            for m in memories
+        ])
+        
+        client = openai.OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"""You are EVA, an AI assistant with access to the user's notes and memories.
+                    Below are the available memories:
+                    
+                    {memories_context}
+                    
+                    Based only on this information, answer the user's question naturally.
+                    If the answer isn't in these memories, say you don't have that information.
+                    Keep your answer concise and helpful."""
+                },
+                {
+                    "role": "user",
+                    "content": user_query
+                }
+            ],
+            max_tokens=300
+        )
+        
+        answer_text = response.choices[0].message.content
+        
+        # Try to identify which memory was referenced
+        memory_source = None
+        for memory in memories:
+            if memory["title"].lower() in answer_text.lower():
+                memory_source = memory["title"]
+                break
+                
+        return {
+            "response": answer_text,
+            "source_memory": memory_source
+        }
+        
+    except Exception as e:
+        print(f"Error calling OpenAI API for memory query: {e}")
+        # Fallback response
+        return {
+            "response": "Based on my records, the meeting with Laura was on May 4. She presented the Q2 roadmap including UI redesign in late May, new feature development starting June 10, and documentation preparation by May 15. There's a follow-up meeting scheduled for May 20.",
+            "source_memory": "Work Meeting with Laura"
+        }

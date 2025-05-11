@@ -6,7 +6,7 @@ import glob
 from PIL import Image
 import io
 import time
-from model_interact import analyze_screenshot
+from model_interact import analyze_screenshot, query_memory
 
 st.set_page_config(page_title="EVA – Your Memory Assistant", layout="centered")
 
@@ -271,6 +271,29 @@ if "analyzing_screenshot" not in st.session_state:
 
 if "screenshot_to_analyze" not in st.session_state:
     st.session_state.screenshot_to_analyze = None
+
+if "notes" not in st.session_state:
+    st.session_state.notes = [
+        {
+            "title": "Eva Startup",
+            "date": "May 11, 2025",
+            "type": "Hackathon",
+            "priority": "High",
+            "source": "Common Knowledge",
+            "summary": "Startup information related to Eva assistant development",
+            "details": "A startup where Asylbek asylbekbug@gmail.com works with Vasiliy klyosovv@gmail.com on a project to make a new OS-native approach to use notes."
+        },
+        {
+            "title": "Work Meeting with Laura",
+            "date": "May 4, 2025",
+            "type": "Meeting",
+            "priority": "Medium",
+            "source": "Calendar",
+            "summary": "Meeting discussion about quarterly project updates",
+            "details": "Laura presented the Q2 roadmap for the product team. Key points:\n- UI redesign scheduled for late May\n- New feature development starting June 10\n- Team needs to prepare documentation by May 15\n- Follow-up meeting scheduled for May 20"
+        }
+    ]
+
 
 # ------------------ WAIT FOR SCREENSHOT ------------------ #
 # If we're in screenshot waiting mode, check for new screenshots
@@ -596,17 +619,17 @@ if selected_page == "Chat":
                         elif any("forward the email to anyone" in msg.get("text", "") for msg in st.session_state.messages[-3:]):
                             with st.spinner("SemanticRetrievalAgent searching contacts..."):
                                 agent_log("SemanticRetrievalAgent", "Searching for relevant contacts...")
-                                time.sleep(2.3)  # Increased from 2 to 3.5
+                                time.sleep(2.3)
                                 agent_log("SemanticRetrievalAgent", "Found teammate: Vasiliy (klyosovv@gmail.com)")
                             
-                            # Add message about specific forwarding
-                            bot_reply = "Would you like me to send this email to your teammate Vasiliy at klyosovv@gmail.com?"
+                            # Add message about specific forwarding with knowledge retrieved tag
+                            bot_reply = "Would you like me to send this email to your teammate Vasiliy at klyosovv@gmail.com?<br><br><span style='color:#888; font-size:0.8em;'>knowledge retrieved</span>"
                             
                             st.session_state.messages.append({
                                 "role": "bot", 
                                 "text": bot_reply,
                                 "has_image": False,
-                                "forwarding_specific": True  # Mark that we're asking about specific forwarding
+                                "forwarding_specific": True
                             })
                             
                             st.rerun()
@@ -653,12 +676,52 @@ if selected_page == "Chat":
                             
                             st.rerun()
                     else:
-                        bot_reply = "I received your message. To test the screenshot feature, type 'Eva, Snap'."
-                        
-                        st.session_state.messages.append({
-                            "role": "bot", 
-                            "text": bot_reply,
-                            "has_image": False
-                        })
-                        
-                        st.rerun()
+                        # Check if the query is asking about memories/meetings
+                        if ("laura" in user_input.lower() or 
+                            "meeting" in user_input.lower() or
+                            any(keyword in user_input.lower() for keyword in ["remember", "remind", "what about", "tell me about", "when was", "what happened"])):
+                            # Use various agents for memory retrieval
+                            with st.spinner("Searching memories..."):
+                                agent_log("SemanticRetrievalAgent", "Searching memory storage for relevant information...")
+                                time.sleep(1.5)
+                                
+                                agent_log("RecallSummarizationAgent", "Retrieving and summarizing memory content...")
+                                time.sleep(2)
+                                
+                                # Make sure notes exist before querying
+                                if "notes" not in st.session_state:
+                                    st.session_state.notes = []
+                                
+                                # Query the memory
+                                memory_result = query_memory(user_input, st.session_state.notes)
+                                
+                                if memory_result["source_memory"]:
+                                    agent_log("RecallSummarizationAgent", f"Found relevant information in memory: {memory_result['source_memory']}")
+                                else:
+                                    agent_log("RecallSummarizationAgent", "No relevant memories found")
+                            
+                            # Format the response
+                            if memory_result["source_memory"]:
+                                bot_reply = f"{memory_result['response']}<br><br><span style='color:#888; font-size:0.8em;'>knowledge retrieved</span>"
+                            else:
+                                bot_reply = memory_result["response"]
+                            
+                            st.session_state.messages.append({
+                                "role": "bot", 
+                                "text": bot_reply,
+                                "has_image": False,
+                                "from_memory": bool(memory_result["source_memory"])
+                            })
+                            
+                            st.rerun()
+                        else:
+                            # Default response for other messages
+                            bot_reply = "I received your message. To test the screenshot feature, type 'Eva, Snap'."
+                            
+                            st.session_state.messages.append({
+                                "role": "bot", 
+                                "text": bot_reply,
+                                "has_image": False
+                            })
+                            
+                            st.rerun()
