@@ -49,10 +49,41 @@ def get_latest_screenshot():
     
     return latest_screenshot, mod_time
 
-# Add a simulated agent log function
-def agent_log(agent_name, message):
-    """Display an agent interaction log"""
-    st.markdown(f"<div class='agent-log'><b>{agent_name}</b>: {message}</div>", unsafe_allow_html=True)
+# Create a global variable to collect agent logs rather than printing them immediately
+if "agent_logs" not in st.session_state:
+    st.session_state.agent_logs = []
+
+# Add a session state variable to track reasoning logs per step:
+if "reasoning_history" not in st.session_state:
+    st.session_state.reasoning_history = {}
+
+# Replace the agent_log function with one that collects logs instead of displaying them
+def agent_log(agent_name, message, step_id=None):
+    """Add an agent interaction log to the collection"""
+    log_entry = f"<div class='agent-log'><b>{agent_name}</b>: {message}</div>"
+    st.session_state.agent_logs.append(log_entry)
+    
+    # If step_id is provided, store the log in that step's history
+    if step_id:
+        if step_id not in st.session_state.reasoning_history:
+            st.session_state.reasoning_history[step_id] = []
+        st.session_state.reasoning_history[step_id].append(log_entry)
+
+# Update the show_agent_reasoning function to place it at the top with a collapsible style
+def show_agent_reasoning():
+    """Show the collected agent logs in a collapsible section"""
+    if st.session_state.agent_logs:
+        logs_html = "".join(st.session_state.agent_logs)
+        
+        # Create a collapsible section with HTML/JS
+        st.markdown(f"""
+        <div class="reasoning-container">
+            <div class="reasoning-header" id="reasoning-header" onclick="toggleReasoning()">⊕ View agent reasoning</div>
+            <div class="reasoning-content" id="reasoning-content">
+                {logs_html}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
@@ -153,6 +184,48 @@ st.markdown("""
         overflow: hidden;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+
+    /* Reasoning section - updated styles */
+    .reasoning-container {
+        margin: 10px 0 20px 0;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+    }
+    
+    .reasoning-header {
+        padding: 8px 15px;
+        background-color: #f0f0f0;
+        color: #666;
+        font-size: 0.9em;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        align-items: center;
+    }
+    
+    .reasoning-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.2s ease-out;
+    }
+    
+    .reasoning-content-active {
+        max-height: 200px;
+        padding: 10px;
+        overflow-y: auto;
+    }
+    
+    .agent-log {
+        font-size: 0.8em;
+        color: #777;
+        background: #f5f5f5;
+        padding: 3px 6px;
+        margin: 2px 0;
+        border-left: 2px solid #aaa;
+        border-radius: 0 2px 2px 0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -230,7 +303,7 @@ if selected_page == "Memory":
 
 # ------------------ HEADER ------------------ #
 if selected_page == "Chat":
-    # Check if SVG files exist
+    # Check ifs SVG files exist
     eva_logo_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva_logo_path)}" alt="EVA logo"/>' if os.path.exists(eva_logo_path) else '<img src="https://via.placeholder.com/30?text=EVA" alt="EVA logo"/>'
     eva1_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva1_path)}" style="height:30px; margin-right:8px;" alt="EVA"/>' if os.path.exists(eva1_path) else ''
 
@@ -251,20 +324,20 @@ if selected_page == "Chat":
     if "screenshot_to_analyze" not in st.session_state:
         st.session_state.screenshot_to_analyze = None
 
-    # ------------------ WAIT FOR SCREENSHOT ------------------ #
+    # ------------------ WAIT FOR SCREENSHOTs ------------------ #
     # If we're in screenshot waiting mode, check for new screenshots
     if st.session_state.waiting_for_screenshot:
         # Create a progress indicator
-        with st.spinner("ScreenCaptureAgent listening for new screenshots..."):
+        with st.spinner("Waiting for new screenshot..."):
             agent_log("ScreenCaptureAgent", "Monitoring desktop for new screenshots...")
             
             # Get the current latest screenshot and its time
             current_screenshot, current_time = get_latest_screenshot()
             
-            # Add debugging info
-            st.text(f"Last known screenshot time: {st.session_state.last_screenshot_time}")
-            st.text(f"Current screenshot time: {current_time}")
-            st.text(f"Current screenshot path: {current_screenshot}")
+            # Hide debugging info - add to logs but don't display
+            agent_log("ScreenCaptureAgent", f"Last known screenshot time: {st.session_state.last_screenshot_time}")
+            agent_log("ScreenCaptureAgent", f"Current screenshot time: {current_time}")
+            agent_log("ScreenCaptureAgent", f"Current screenshot path: {current_screenshot}")
             
             # Force a check for completely new screenshots
             all_screenshots = []
@@ -464,6 +537,27 @@ if selected_page == "Chat":
                                 
                                 agent_log("QueryInterfaceAgent", "Creating calendar event...")
                                 time.sleep(2.5)  # Increased from 1.5 to 2.5
+                                
+                                # Add a new memory about this event being connected to Eva startup
+                                agent_log("MemoryStorageAgent", "Creating connection between event and Eva startup...")
+                                time.sleep(1.5)
+                                
+                                # Add the new note to memory
+                                new_startup_event = {
+                                    "title": "Startup Pitch Event - Eva Team Attending",
+                                    "date": "May 11, 2025",
+                                    "type": "Event",
+                                    "priority": "High",
+                                    "source": "Calendar Integration",
+                                    "summary": "Asylbek and Vasiliy are planning to attend the startup pitch event at TUM Venture Lab",
+                                    "details": "Both Eva startup co-founders will be attending the pitch event at TUM Venture Lab on Thursday from 5:00 PM to 8:00 PM. This event is related to their work on developing an OS-native note-taking application."
+                                }
+                                
+                                if "notes" not in st.session_state:
+                                    st.session_state.notes = []
+                                    
+                                st.session_state.notes.append(new_startup_event)
+                                agent_log("MemoryStorageAgent", "Successfully added event to long-term memory and connected to Eva startup context")
                             
                             event_details = "Time: 5:00 PM to 8:00 PM<br>Location: TUM Venture Lab"
                             bot_reply = f"Done!<br>{event_details}"
@@ -475,7 +569,6 @@ if selected_page == "Chat":
                                 "calendar_added": True  # Mark that calendar was added
                             })
                             
-                            # Rerun to show the calendar confirmation
                             st.rerun()
                             
                         # Handle forwarding email question
