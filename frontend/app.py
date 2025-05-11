@@ -88,8 +88,8 @@ def show_agent_reasoning():
 # Get path to SVG files
 src_dir = os.path.join(os.path.dirname(__file__), "src")
 eva_logo_path = os.path.join(src_dir, "eva_logo.svg")
-eva1_path = os.path.join(src_dir, "eva1.svg")
-eva2_path = os.path.join(src_dir, "eva2.svg")
+eva1_path = os.path.join(src_dir, "eva2.svg")
+eva2_path = os.path.join(src_dir, "eva1.svg")
 
 # ------------------ STYLES ------------------ #
 st.markdown("""
@@ -150,17 +150,23 @@ st.markdown("""
         justify-content: flex-end;
         width: 100%;
     }
-    
+    .eva2-wrapper {
+        position: relative;
+        height: 450px; /* Adjust as needed for vertical space */
+        width: 100%;
+    }
+                
     .eva2-center {
         position: absolute;
-        top: 50%;
+        top: 50%; /* Position lower if needed */
         left: 50%;
         transform: translate(-50%, -50%);
-        opacity: 0.05;
-        width: 200px;
-        z-index:s 0;
+        width: 180px;
+        z-index: 0;
+        display: block;
+        pointer-events: none;
     }
-    
+
     .agent-log {
         font-size: 0.8em;
         color: #555;
@@ -221,23 +227,44 @@ st.markdown("""
         border-radius: 0 2px 2px 0;
     }
     </style>
-    
-    <script>
-    function toggleReasoning() {
-        const content = document.getElementById('reasoning-content');
-        const header = document.getElementById('reasoning-header');
-        
-        if (content.className.includes('reasoning-content-active')) {
-            content.className = 'reasoning-content';
-            header.innerHTML = '⊕ View agent reasoning';
-        } else {
-            content.className = 'reasoning-content reasoning-content-active';
-            header.innerHTML = '⊖ Hide agent reasoning';
-        }
-    }
-    </script>
 """, unsafe_allow_html=True)
 
+# ------------------ HEADER ------------------ #
+# Check if SVG files exist
+eva_logo_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva_logo_path)}" alt="EVA logo"/>' if os.path.exists(eva_logo_path) else '<img src="https://via.placeholder.com/30?text=EVA" alt="EVA logo"/>'
+eva1_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva1_path)}" style="height:30px; margin-right:8px;" alt="EVA"/>' if os.path.exists(eva1_path) else ''
+
+st.markdown(f"""
+<div class="header">
+    <div style="display:flex; align-items:center;">
+      {eva1_html if os.path.exists(eva1_path) else ''}
+      {eva_logo_html if os.path.exists(eva_logo_path) else ''}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ------------------ SESSION STATE ------------------ #
+if "messages" not in st.session_state:
+    st.session_state.messages = []  # Start with empty messages instead of welcome message
+
+if "waiting_for_screenshot" not in st.session_state:
+    st.session_state.waiting_for_screenshot = False
+
+if "last_screenshot_time" not in st.session_state:
+    st.session_state.last_screenshot_time = 0
+
+if "analyzing_screenshot" not in st.session_state:
+    st.session_state.analyzing_screenshot = False
+
+if "screenshot_to_analyze" not in st.session_state:
+    st.session_state.screenshot_to_analyze = None
+
+# ------------------ WAIT FOR SCREENSHOT ------------------ #
+# If we're in screenshot waiting mode, check for new screenshots
+if st.session_state.waiting_for_screenshot:
+    # Create a progress indicator
+    with st.spinner("ScreenCaptureAgent listening for new screenshots..."):
+        agent_log("ScreenCaptureAgent", "Monitoring desktop for new screenshots...")
 # ------------------ MEMORY PAGE ------------------ #
 if selected_page == "Memory":
     st.header("Memory Storage")
@@ -280,18 +307,6 @@ if selected_page == "Chat":
     eva_logo_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva_logo_path)}" alt="EVA logo"/>' if os.path.exists(eva_logo_path) else '<img src="https://via.placeholder.com/30?text=EVA" alt="EVA logo"/>'
     eva1_html = f'<img src="data:image/svg+xml;base64,{get_image_as_base64(eva1_path)}" style="height:30px; margin-right:8px;" alt="EVA"/>' if os.path.exists(eva1_path) else ''
 
-    st.markdown(f"""
-    <div class="header">
-        <div style="display:flex; align-items:center;">
-          {eva1_html if os.path.exists(eva1_path) else ''}
-          {eva_logo_html if os.path.exists(eva_logo_path) else ''}
-          <span style="margin-left:8px; font-weight:bold; font-size:18px;">EVA</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Show agent reasoning logs at the top of the chat
-    show_agent_reasoning()
 
     # ------------------ SESSION STATE ------------------ #
     if "messages" not in st.session_state:
@@ -430,8 +445,13 @@ if selected_page == "Chat":
     # ------------------ CHAT DISPLAY ------------------ #
     # Add eva2 SVG in the center of the chat area if it exists
     if os.path.exists(eva2_path):
-        st.markdown(f'<div style="position:relative;"><img src="data:image/svg+xml;base64,{get_image_as_base64(eva2_path)}" class="eva2-center" alt="EVA background"/></div>', unsafe_allow_html=True)
-
+        st.markdown(f'''
+        <div class="eva2-wrapper">
+            <img src="data:image/svg+xml;base64,{get_image_as_base64(eva2_path)}" 
+                class="eva2-center" alt="EVA background"/>
+        </div>
+        ''', unsafe_allow_html=True)
+        
     # Start the chat container
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
