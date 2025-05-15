@@ -2,7 +2,8 @@
 
 SmartNotes
 
-
+### Demo of the Project
+[![Watch the demo on YouTube](https://img.youtube.com/vi/Up4IqVnsPQA/0.jpg)](https://youtu.be/Up4IqVnsPQA)
 
 1. Listener
 - Hotkey -> bg service listens for the vc 
