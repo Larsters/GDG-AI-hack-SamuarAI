@@ -723,7 +723,7 @@ if selected_page == "Chat":
                         
                         # Handle TODO suggestion confirmation
                         elif any(msg.get("todo_suggestion", False) for msg in st.session_state.messages[-3:]):
-                            with st.spinner("TaskManagerAgent creating todo..."):
+                            with st.spinner("   rAgent creating todo..."):
                                 agent_log("TaskManagerAgent", "Creating new high-priority task...")
                                 agent_log("TaskManagerAgent", "Setting due date before May 20 meeting...")
                                 
